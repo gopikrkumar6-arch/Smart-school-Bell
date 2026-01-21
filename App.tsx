@@ -5,7 +5,7 @@ import { COLORS, INITIAL_PERIODS, PREBUILT_SOUNDS } from './constants';
 import PeriodCard from './components/PeriodCard';
 import AlarmCard from './components/AlarmCard';
 import TimePicker from './components/TimePicker';
-import { optimizeSchedule } from './services/geminiService';
+// import { optimizeSchedule } from './services/geminiService';
 
 const QUICK_DURATIONS = [30, 35, 40, 45, 50, 55, 60, 90];
 const RING_DURATION_PRESETS = [5, 10, 15, 30, 45, 60];
@@ -1114,7 +1114,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {view === 'ai' && (
+        {/* {view === 'ai' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-indigo-600 p-6 rounded-[30px] mb-6 text-white shadow-xl">
                <h2 className="text-xl font-black mb-1">AI Genius</h2>
@@ -1131,7 +1131,7 @@ const App: React.FC = () => {
               } catch (err) { alert("AI failed."); } finally { setIsAiLoading(false); }
             }} disabled={isAiLoading || !aiInput.trim()} className="w-full mt-4 p-5 bg-slate-900 text-white rounded-[24px] font-black">{isAiLoading ? "Processing..." : "Generate AI Plan"}</button>
           </div>
-        )}
+        )} */}
 
         {view === 'settings' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
