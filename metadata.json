@@ -1,0 +1,7 @@
+{
+  "name": "Periodize Alarms",
+  "description": "A sleek, period-based alarm and schedule manager that helps you organize your day into structured blocks with AI-powered optimization.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
