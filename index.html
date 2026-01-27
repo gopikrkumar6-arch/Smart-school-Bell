@@ -1,6 +1,6 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,35 +16,68 @@
       -webkit-tap-highlight-color: transparent;
       overflow-x: hidden;
     }
+
     .custom-scrollbar::-webkit-scrollbar {
       width: 4px;
     }
+
     .custom-scrollbar::-webkit-scrollbar-track {
       background: #f1f1f1;
     }
+
     .custom-scrollbar::-webkit-scrollbar-thumb {
       background: #cbd5e1;
       border-radius: 10px;
     }
+
     @keyframes pulse-soft {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.05); opacity: 0.8; }
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.05);
+        opacity: 0.8;
+      }
     }
+
     .animate-pulse-soft {
       animation: pulse-soft 2s infinite ease-in-out;
     }
+
     @keyframes glow {
-      0%, 100% { box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.1), 0 0 15px 2px rgba(99, 102, 241, 0.2); }
-      50% { box-shadow: 0 20px 35px -5px rgba(99, 102, 241, 0.2), 0 0 25px 8px rgba(99, 102, 241, 0.4); }
+
+      0%,
+      100% {
+        box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.1), 0 0 15px 2px rgba(99, 102, 241, 0.2);
+      }
+
+      50% {
+        box-shadow: 0 20px 35px -5px rgba(99, 102, 241, 0.2), 0 0 25px 8px rgba(99, 102, 241, 0.4);
+      }
     }
+
     .active-period-glow {
       animation: glow 3s infinite ease-in-out;
     }
+
     @keyframes gradient-move {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+      0% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
     }
+
     .active-period-gradient {
       background: linear-gradient(-45deg, #ffffff, #f8faff, #eef2ff, #ffffff);
       background-size: 400% 400%;
@@ -53,10 +86,19 @@
 
     /* Active Profile Glow Animation */
     @keyframes profile-text-shine {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+      0% {
+        background-position: 0% 50%;
+      }
+
+      50% {
+        background-position: 100% 50%;
+      }
+
+      100% {
+        background-position: 0% 50%;
+      }
     }
+
     .active-profile-glow {
       background: linear-gradient(90deg, #4f46e5, #818cf8, #a855f7, #6366f1, #4f46e5);
       background-size: 300% auto;
@@ -65,47 +107,91 @@
       animation: profile-text-shine 4s ease infinite;
       filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.3));
     }
-    
+
     /* Ringing Screen Animations */
     @keyframes ring-shake {
-      0% { transform: rotate(0); }
-      10% { transform: rotate(15deg); }
-      20% { transform: rotate(-15deg); }
-      30% { transform: rotate(15deg); }
-      40% { transform: rotate(-15deg); }
-      50% { transform: rotate(0); }
-      100% { transform: rotate(0); }
+      0% {
+        transform: rotate(0);
+      }
+
+      10% {
+        transform: rotate(15deg);
+      }
+
+      20% {
+        transform: rotate(-15deg);
+      }
+
+      30% {
+        transform: rotate(15deg);
+      }
+
+      40% {
+        transform: rotate(-15deg);
+      }
+
+      50% {
+        transform: rotate(0);
+      }
+
+      100% {
+        transform: rotate(0);
+      }
     }
+
     .animate-ring-shake {
       animation: ring-shake 0.8s infinite;
     }
 
     @keyframes pulse-ring {
-      0% { transform: scale(0.8); opacity: 0.5; }
-      100% { transform: scale(2.4); opacity: 0; }
+      0% {
+        transform: scale(0.8);
+        opacity: 0.5;
+      }
+
+      100% {
+        transform: scale(2.4);
+        opacity: 0;
+      }
     }
+
     .animate-pulse-ring {
       animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     }
 
     /* Sand Timer Animations */
     @keyframes sand-grain-flow {
-      0% { background-position: 0 0; }
-      100% { background-position: 40px 40px; }
+      0% {
+        background-position: 0 0;
+      }
+
+      100% {
+        background-position: 40px 40px;
+      }
     }
-    
+
     .sand-texture {
-      background-image: 
-        radial-gradient(circle at 2px 2px, rgba(255,255,255,0.4) 1px, transparent 0),
-        radial-gradient(circle at 8px 8px, rgba(0,0,0,0.05) 1px, transparent 0);
+      background-image:
+        radial-gradient(circle at 2px 2px, rgba(255, 255, 255, 0.4) 1px, transparent 0),
+        radial-gradient(circle at 8px 8px, rgba(0, 0, 0, 0.05) 1px, transparent 0);
       background-size: 12px 12px;
       animation: sand-grain-flow 3s linear infinite;
     }
 
     @keyframes sand-pour-edge {
-      0%, 100% { transform: scale(1) translateY(0); opacity: 0.8; }
-      50% { transform: scale(1.4) translateY(-2px); opacity: 1; }
+
+      0%,
+      100% {
+        transform: scale(1) translateY(0);
+        opacity: 0.8;
+      }
+
+      50% {
+        transform: scale(1.4) translateY(-2px);
+        opacity: 1;
+      }
     }
+
     .sand-pour-indicator {
       animation: sand-pour-edge 0.6s ease-in-out infinite;
     }
@@ -114,25 +200,47 @@
     .step-enter {
       animation: slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
+
     @keyframes slide-in {
-      from { opacity: 0; transform: translateX(50px); }
-      to { opacity: 1; transform: translateX(0); }
+      from {
+        opacity: 0;
+        transform: translateX(50px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
     }
 
     /* Modal Backdrop Fade */
     @keyframes backdrop-fade {
-      from { opacity: 0; }
-      to { opacity: 1; }
+      from {
+        opacity: 0;
+      }
+
+      to {
+        opacity: 1;
+      }
     }
+
     .animate-backdrop {
       animation: backdrop-fade 0.3s ease forwards;
     }
 
     /* Modal Scale/Zoom Pop */
     @keyframes modal-pop {
-      from { transform: scale(0.9); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+      from {
+        transform: scale(0.9);
+        opacity: 0;
+      }
+
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
     }
+
     .animate-modal-pop {
       animation: modal-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
@@ -145,27 +253,28 @@
       overflow: hidden;
       line-height: 2rem;
     }
+
     @keyframes digit-flip {
-      0% { transform: translateY(100%); opacity: 0; }
-      100% { transform: translateY(0); opacity: 1; }
+      0% {
+        transform: translateY(100%);
+        opacity: 0;
+      }
+
+      100% {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
+
     .digit-flip-animate {
       animation: digit-flip 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
   </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.37.0"
-  }
-}
-</script>
 </head>
+
 <body>
   <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>
