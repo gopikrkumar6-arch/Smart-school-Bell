@@ -12,9 +12,11 @@
     "cap:run:android": "npm run build && npx cap sync && npx cap run android"
   },
   "dependencies": {
+    "@capacitor-community/keep-awake": "^8.0.0",
     "@capacitor/android": "^8.0.1",
     "@capacitor/cli": "^8.0.1",
     "@capacitor/core": "^8.0.1",
+    "@capacitor/local-notifications": "^8.0.0",
     "@google/genai": "^1.37.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"

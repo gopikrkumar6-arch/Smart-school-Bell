@@ -5,12 +5,15 @@ import { COLORS, INITIAL_PERIODS, PREBUILT_SOUNDS } from './constants';
 import PeriodCard from './components/PeriodCard';
 import AlarmCard from './components/AlarmCard';
 import TimePicker from './components/TimePicker';
-// import { optimizeSchedule } from './services/geminiService';
+import { optimizeSchedule } from './services/geminiService';
+import { KeepAwake } from '@capacitor-community/keep-awake';
+import { LocalNotifications } from '@capacitor/local-notifications';
+import { Capacitor } from '@capacitor/core';
 
 const QUICK_DURATIONS = [30, 35, 40, 45, 50, 55, 60, 90];
 const RING_DURATION_PRESETS = [5, 10, 15, 30, 45, 60];
 const QUICK_NAMES = [
-  "PRAYER", "1st Bell", "2nd Bell", "3rd Bell", "4th Bell", 
+  "PRAYER", "1st Bell", "2nd Bell", "3rd Bell", "4th Bell",
   "Lunch Break", "5th Bell", "6th Bell", "7th Bell", "8th Bell", "DIARY"
 ];
 
@@ -60,7 +63,7 @@ const FlipDigit: React.FC<{ value: string }> = ({ value }) => {
 };
 
 const SoundOptionList: React.FC<{
-  sounds: {id: string, name: string, url: string}[],
+  sounds: { id: string, name: string, url: string }[],
   selectedUrl: string,
   onSelect: (url: string) => void,
   onPreview: (url: string) => void,
@@ -69,8 +72,8 @@ const SoundOptionList: React.FC<{
 }> = ({ sounds, selectedUrl, onSelect, onPreview, previewingUrl, maxHeight = "160px" }) => (
   <div className="overflow-y-auto custom-scrollbar border border-slate-100 rounded-2xl bg-white divide-y divide-slate-50 shadow-inner" style={{ maxHeight }}>
     {sounds.map(s => (
-      <div 
-        key={s.id} 
+      <div
+        key={s.id}
         onClick={() => onSelect(s.url)}
         className={`p-3 flex items-center justify-between cursor-pointer active:bg-slate-50 ${selectedUrl === s.url ? 'bg-indigo-50/20' : ''}`}
       >
@@ -78,8 +81,8 @@ const SoundOptionList: React.FC<{
           <div className={`w-3.5 h-3.5 rounded-full border-[2.5px] ${selectedUrl === s.url ? 'border-indigo-500 bg-indigo-500 shadow-sm' : 'border-slate-100'}`} />
           <span className={`font-bold text-[11px] truncate ${selectedUrl === s.url ? 'text-indigo-900' : 'text-slate-500'}`}>{s.name}</span>
         </div>
-        <button 
-          onClick={(e) => { e.stopPropagation(); onPreview(s.url); }} 
+        <button
+          onClick={(e) => { e.stopPropagation(); onPreview(s.url); }}
           className={`p-1.5 rounded-lg transition-colors ${previewingUrl === s.url ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-50 text-indigo-400 hover:bg-indigo-50'}`}
         >
           {previewingUrl === s.url ? (
@@ -122,7 +125,7 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('fixedAlarms');
     return saved ? JSON.parse(saved).map((a: any) => ({ ...a, soundUrl: a.soundUrl || null, ringDuration: a.ringDuration || 10 })) : [];
   });
-  
+
   const [savedProfiles, setSavedProfiles] = useState<ScheduleProfile[]>(() => {
     const saved = localStorage.getItem('scheduleProfiles');
     return saved ? JSON.parse(saved) : [];
@@ -132,7 +135,7 @@ const App: React.FC = () => {
     return localStorage.getItem('activeProfileName');
   });
 
-  const [customSounds, setCustomSounds] = useState<{id: string, name: string, url: string}[]>(() => {
+  const [customSounds, setCustomSounds] = useState<{ id: string, name: string, url: string }[]>(() => {
     const saved = localStorage.getItem('customSounds');
     return saved ? JSON.parse(saved) : [];
   });
@@ -152,16 +155,16 @@ const App: React.FC = () => {
   const [selectedProfilePreview, setSelectedProfilePreview] = useState<ScheduleProfile | null>(null);
   const [isRenamingProfile, setIsRenamingProfile] = useState(false);
   const [editingFromProfileId, setEditingFromProfileId] = useState<string | null>(null);
-  
+
   // New Ringing Overlay State
   const [isRinging, setIsRinging] = useState(false);
   const [ringingLabel, setRingingLabel] = useState('');
-  
+
   const [tempProfileName, setTempProfileName] = useState('');
   const [newProfileName, setNewProfileName] = useState('');
   const [tempUrl, setTempUrl] = useState('');
   const [tempUrlName, setTempUrlName] = useState('');
-  
+
   const [view, setView] = useState<ViewType>('schedule');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAlarmModalOpen, setIsAlarmModalOpen] = useState(false);
@@ -175,15 +178,15 @@ const App: React.FC = () => {
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     confirmText: 'Confirm',
     type: 'info'
   });
-  
+
   // Period Form State
   const [newName, setNewName] = useState('');
   const [newStartTime, setNewStartTime] = useState('09:00');
-  const [duration, setDuration] = useState(60); 
+  const [duration, setDuration] = useState(60);
   const [repeatDays, setRepeatDays] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [editingPeriodId, setEditingPeriodId] = useState<string | null>(null);
   const [periodSound, setPeriodSound] = useState<string | null>(null);
@@ -235,6 +238,34 @@ const App: React.FC = () => {
     }
   }, [activeProfileName]);
 
+  // Initialize notifications and schedule alarms
+  useEffect(() => {
+    const initializeNotifications = async () => {
+      if (Capacitor.isNativePlatform()) {
+        try {
+          // Request notification permissions
+          const permResult = await LocalNotifications.requestPermissions();
+
+          if (permResult.display === 'granted') {
+            // Schedule notifications for all active alarms
+            await scheduleNotifications();
+          }
+        } catch (error) {
+          console.error('Error initializing notifications:', error);
+        }
+      }
+    };
+
+    initializeNotifications();
+  }, []);
+
+  // Re-schedule notifications when periods or alarms change
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      scheduleNotifications();
+    }
+  }, [periods, fixedAlarms]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       const now = new Date();
@@ -244,21 +275,106 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [periods, fixedAlarms, selectedSound]);
 
+  const scheduleNotifications = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    try {
+      // Cancel all existing notifications
+      const pending = await LocalNotifications.getPending();
+      if (pending.notifications.length > 0) {
+        await LocalNotifications.cancel({ notifications: pending.notifications });
+      }
+
+      const notifications: any[] = [];
+      let notificationId = 1;
+
+      // Schedule notifications for active periods
+      periods.filter(p => p.isActive).forEach(period => {
+        period.repeatDays.forEach(day => {
+          const [hours, minutes] = period.endTime.split(':').map(Number);
+          const schedule = {
+            on: {
+              hour: hours,
+              minute: minutes,
+              second: 0
+            },
+            allowWhileIdle: true,
+            repeats: true
+          };
+
+          notifications.push({
+            id: notificationId++,
+            title: `${period.name} Ended`,
+            body: `Bell ringing for ${period.ringDuration} seconds`,
+            schedule,
+            sound: period.soundUrl || selectedSound,
+            actionTypeId: 'ALARM_ACTION',
+            extra: {
+              type: 'period',
+              periodId: period.id,
+              soundUrl: period.soundUrl || selectedSound,
+              ringDuration: period.ringDuration
+            }
+          });
+        });
+      });
+
+      // Schedule notifications for active fixed alarms
+      fixedAlarms.filter(a => a.isActive).forEach(alarm => {
+        alarm.repeatDays.forEach(day => {
+          const [hours, minutes] = alarm.time.split(':').map(Number);
+          const schedule = {
+            on: {
+              hour: hours,
+              minute: minutes,
+              second: 0
+            },
+            allowWhileIdle: true,
+            repeats: true
+          };
+
+          notifications.push({
+            id: notificationId++,
+            title: alarm.label || 'Alarm',
+            body: `Bell ringing for ${alarm.ringDuration} seconds`,
+            schedule,
+            sound: alarm.soundUrl || selectedSound,
+            actionTypeId: 'ALARM_ACTION',
+            extra: {
+              type: 'alarm',
+              alarmId: alarm.id,
+              soundUrl: alarm.soundUrl || selectedSound,
+              ringDuration: alarm.ringDuration
+            }
+          });
+        });
+      });
+
+      // Schedule all notifications
+      if (notifications.length > 0) {
+        await LocalNotifications.schedule({ notifications });
+        console.log(`Scheduled ${notifications.length} notifications`);
+      }
+    } catch (error) {
+      console.error('Error scheduling notifications:', error);
+    }
+  };
+
   const checkAlarms = useCallback((now: Date) => {
     const timeStr = now.toTimeString().slice(0, 5);
     const seconds = now.getSeconds();
     const day = now.getDay();
-    
+
     if (seconds === 0) {
-      const activePeriodsEnded = periods.filter(p => 
-        p.isActive && 
-        p.repeatDays.includes(day) && 
+      const activePeriodsEnded = periods.filter(p =>
+        p.isActive &&
+        p.repeatDays.includes(day) &&
         p.endTime === timeStr
       );
 
-      const triggeredAlarms = fixedAlarms.filter(a => 
-        a.isActive && 
-        a.repeatDays.includes(day) && 
+      const triggeredAlarms = fixedAlarms.filter(a =>
+        a.isActive &&
+        a.repeatDays.includes(day) &&
         a.time === timeStr
       );
 
@@ -274,7 +390,7 @@ const App: React.FC = () => {
     }
   }, [periods, fixedAlarms, selectedSound]);
 
-  const stopAlarm = useCallback(() => {
+  const stopAlarm = useCallback(async () => {
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -287,16 +403,35 @@ const App: React.FC = () => {
     setIsRinging(false);
     setRingingLabel('');
     if (navigator.vibrate) navigator.vibrate(0);
+
+    // Release wake lock
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await KeepAwake.allowSleep();
+      } catch (error) {
+        console.error('Error releasing wake lock:', error);
+      }
+    }
   }, []);
 
-  const playAlarm = (url?: string, durationSeconds: number = 10, label: string = "Bell Ringing") => {
+  const playAlarm = async (url?: string, durationSeconds: number = 10, label: string = "Bell Ringing") => {
     const soundUrl = url || selectedSound;
+
+    // Acquire wake lock to keep device awake
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await KeepAwake.keepAwake();
+      } catch (error) {
+        console.error('Error acquiring wake lock:', error);
+      }
+    }
+
     if (audioRef.current) {
       // Clear existing if any
       if (ringTimeoutRef.current) {
         window.clearTimeout(ringTimeoutRef.current);
       }
-      
+
       setPreviewingUrl(null);
       setIsRinging(true);
       setRingingLabel(label);
@@ -307,7 +442,7 @@ const App: React.FC = () => {
         console.log("Audio play blocked", e);
         setIsRinging(false);
       });
-      
+
       if (navigator.vibrate) {
         navigator.vibrate([300, 100, 300, 100, 300]);
       }
@@ -433,7 +568,7 @@ const App: React.FC = () => {
 
   const handleRenameProfile = () => {
     if (!selectedProfilePreview || !tempProfileName.trim()) return;
-    const updatedProfiles = savedProfiles.map(p => 
+    const updatedProfiles = savedProfiles.map(p =>
       p.id === selectedProfilePreview.id ? { ...p, name: tempProfileName } : p
     );
     if (activeProfileName === selectedProfilePreview.name) {
@@ -469,10 +604,10 @@ const App: React.FC = () => {
       // Logic for saving back to a saved profile list
       const updatedProfiles = savedProfiles.map(prof => {
         if (prof.id === editingFromProfileId) {
-          const updatedPeriods = prof.periods.map(p => 
+          const updatedPeriods = prof.periods.map(p =>
             p.id === editingPeriodId ? { ...p, ...periodData } : p
           ).sort((a, b) => a.startTime.localeCompare(b.startTime));
-          
+
           // Sync the current preview if it's the same profile
           if (selectedProfilePreview?.id === prof.id) {
             setSelectedProfilePreview({ ...prof, periods: updatedPeriods });
@@ -628,8 +763,8 @@ const App: React.FC = () => {
       {isRinging && (
         <div className="fixed inset-0 z-[500] flex flex-col items-center justify-center p-6 bg-slate-900/90 backdrop-blur-2xl animate-in fade-in duration-500">
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/20 rounded-full animate-pulse-ring" />
-             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full animate-pulse-ring [animation-delay:1s]" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/20 rounded-full animate-pulse-ring" />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-indigo-500/10 rounded-full animate-pulse-ring [animation-delay:1s]" />
           </div>
 
           <div className="relative z-10 flex flex-col items-center text-center space-y-8 max-w-xs">
@@ -640,24 +775,24 @@ const App: React.FC = () => {
             </div>
 
             <div className="space-y-3">
-               <h2 className="text-4xl font-black text-white tracking-tight">{ringingLabel}</h2>
-               <div className="flex items-center justify-center space-x-2 text-indigo-400 font-black text-xl tabular-nums">
-                 <span>{timeParts.hh}:{timeParts.mm}</span>
-                 <span className="text-xs opacity-60 font-bold uppercase tracking-widest bg-indigo-500/20 px-2 py-0.5 rounded-full">{currentTime.getHours() >= 12 ? 'PM' : 'AM'}</span>
-               </div>
+              <h2 className="text-4xl font-black text-white tracking-tight">{ringingLabel}</h2>
+              <div className="flex items-center justify-center space-x-2 text-indigo-400 font-black text-xl tabular-nums">
+                <span>{timeParts.hh}:{timeParts.mm}</span>
+                <span className="text-xs opacity-60 font-bold uppercase tracking-widest bg-indigo-500/20 px-2 py-0.5 rounded-full">{currentTime.getHours() >= 12 ? 'PM' : 'AM'}</span>
+              </div>
             </div>
 
             <div className="w-full pt-10">
-               <button 
+              <button
                 onClick={stopAlarm}
                 className="w-full py-6 bg-white text-slate-900 rounded-[32px] font-black text-xl uppercase tracking-widest shadow-[0_20px_50px_rgba(0,0,0,0.3)] active:scale-95 transition-all flex items-center justify-center gap-3 group"
-               >
-                 <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white group-active:animate-ping">
-                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" /></svg>
-                 </div>
-                 Stop Bell
-               </button>
-               <p className="mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Tap to dismiss</p>
+              >
+                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white group-active:animate-ping">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" /></svg>
+                </div>
+                Stop Bell
+              </button>
+              <p className="mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Tap to dismiss</p>
             </div>
           </div>
         </div>
@@ -678,13 +813,13 @@ const App: React.FC = () => {
             <h3 className="text-xl font-black text-slate-900 mb-2">{confirmConfig.title}</h3>
             <p className="text-sm font-bold text-slate-400 mb-8 leading-relaxed px-2">{confirmConfig.message}</p>
             <div className="flex flex-col gap-3">
-              <button 
+              <button
                 onClick={confirmConfig.onConfirm}
                 className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg ${confirmConfig.type === 'danger' ? 'bg-red-500 text-white' : 'bg-indigo-600 text-white'}`}
               >
                 {confirmConfig.confirmText}
               </button>
-              <button 
+              <button
                 onClick={closeConfirm}
                 className="w-full py-4 bg-slate-50 text-slate-400 font-black rounded-2xl text-xs uppercase tracking-widest"
               >
@@ -704,22 +839,22 @@ const App: React.FC = () => {
               <div className="flex-1 mr-4">
                 {isRenamingProfile ? (
                   <div className="flex items-center gap-2">
-                    <input 
-                      type="text" 
-                      value={tempProfileName} 
+                    <input
+                      type="text"
+                      value={tempProfileName}
                       onChange={(e) => setTempProfileName(e.target.value)}
                       className="flex-1 bg-slate-50 border border-indigo-200 rounded-xl px-3 py-1.5 font-black text-sm outline-none focus:ring-2 ring-indigo-500"
                       autoFocus
                       onBlur={() => { if (!tempProfileName.trim()) setIsRenamingProfile(false); }}
                     />
                     <button onClick={handleRenameProfile} className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg">
-                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
                     <h3 className="text-xl font-black text-slate-900 leading-tight truncate">{selectedProfilePreview.name}</h3>
-                    <button 
+                    <button
                       onClick={() => { setTempProfileName(selectedProfilePreview.name); setIsRenamingProfile(true); }}
                       className="p-1.5 text-slate-300 hover:text-indigo-500 transition-colors"
                     >
@@ -733,7 +868,7 @@ const App: React.FC = () => {
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2.5 pr-1 py-2">
               {selectedProfilePreview.periods.map(p => (
                 <div key={p.id} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between group/bell">
@@ -749,7 +884,7 @@ const App: React.FC = () => {
                       <p className="text-[10px] font-black text-indigo-600 leading-none">{format12h(p.startTime)}</p>
                       <p className="text-[8px] font-bold text-slate-400 leading-none mt-0.5">to {format12h(p.endTime)}</p>
                     </div>
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); openModal(p, selectedProfilePreview.id); }}
                       className="p-2 bg-white text-slate-300 hover:text-indigo-600 rounded-xl shadow-sm border border-slate-100 opacity-0 group-hover/bell:opacity-100 transition-all active:scale-90"
                     >
@@ -792,21 +927,21 @@ const App: React.FC = () => {
             <h2 className="text-xl font-black text-slate-900 mb-4">{editingAlarmId ? 'Edit Alarm' : 'Set Alarm'}</h2>
             <div className="flex-1 overflow-y-auto space-y-5 pr-1 custom-scrollbar">
               <TimePicker label="Select Alarm Time" value={newAlarmTime} onChange={setNewAlarmTime} />
-              
+
               <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Ring Duration</label>
                   <div className="flex items-center gap-1">
-                    <input 
-                      type="number" 
-                      value={alarmRingDuration} 
+                    <input
+                      type="number"
+                      value={alarmRingDuration}
                       onChange={(e) => setAlarmRingDuration(Number(e.target.value))}
                       className="w-12 bg-white border border-indigo-100 rounded-lg px-1.5 py-0.5 text-xs font-black text-indigo-600 text-center focus:ring-1 ring-indigo-500 outline-none"
                     />
                     <span className="text-[10px] font-black text-indigo-400">Seconds</span>
                   </div>
                 </div>
-                <input 
+                <input
                   type="range" min="1" max="120" step="1"
                   value={alarmRingDuration > 120 ? 120 : alarmRingDuration} onChange={(e) => setAlarmRingDuration(Number(e.target.value))}
                   className="w-full accent-indigo-600"
@@ -817,7 +952,7 @@ const App: React.FC = () => {
                 <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Alarm Label</label>
                 <input type="text" value={newAlarmLabel} onChange={(e) => setNewAlarmLabel(e.target.value)} placeholder="Wake up..." className="w-full bg-transparent border-none focus:ring-0 text-sm font-bold text-slate-800" />
               </div>
-              
+
               <SoundOptionList sounds={allSounds} selectedUrl={alarmSound || selectedSound} onSelect={setAlarmSound} onPreview={testAlarm} previewingUrl={previewingUrl} />
               <div className="flex justify-between items-center gap-1">
                 {DAYS_SHORT.map((day, idx) => (
@@ -900,10 +1035,10 @@ const App: React.FC = () => {
                     </div>
                     <span className="text-xl font-black text-indigo-600">{duration}m</span>
                   </div>
-                  
+
                   {/* Duration Slider (Minute Bar) */}
                   <div className="py-2">
-                    <input 
+                    <input
                       type="range" min="1" max="180" step="1"
                       value={duration}
                       onChange={(e) => setDuration(Number(e.target.value))}
@@ -942,9 +1077,9 @@ const App: React.FC = () => {
                   <div className="flex justify-between items-center">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Alarm Ring Duration</label>
                     <div className="flex items-center gap-1.5">
-                      <input 
-                        type="number" 
-                        value={periodRingDuration} 
+                      <input
+                        type="number"
+                        value={periodRingDuration}
                         onChange={(e) => setPeriodRingDuration(Number(e.target.value))}
                         className="w-14 bg-white border border-indigo-100 rounded-xl px-2 py-1 text-base font-black text-indigo-600 text-center focus:ring-2 ring-indigo-500 outline-none shadow-sm"
                       />
@@ -956,7 +1091,7 @@ const App: React.FC = () => {
                       <button key={s} onClick={() => setPeriodRingDuration(s)} className={`py-3 rounded-xl text-xs font-black border transition-all ${periodRingDuration === s ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105' : 'bg-white text-slate-400 border-slate-100'}`}>{s}s</button>
                     ))}
                   </div>
-                  <input 
+                  <input
                     type="range" min="1" max="120" step="1"
                     value={periodRingDuration > 120 ? 120 : periodRingDuration} onChange={(e) => setPeriodRingDuration(Number(e.target.value))}
                     className="w-full accent-indigo-600 mt-2"
@@ -1036,9 +1171,9 @@ const App: React.FC = () => {
             )}
             <div className="flex justify-between items-center mb-2 px-1">
               <h2 className="text-sm font-black text-slate-800 uppercase tracking-widest">Your Bells</h2>
-              <button 
-                onClick={() => setIsProfileModalOpen(true)} 
-                disabled={periods.length === 0} 
+              <button
+                onClick={() => setIsProfileModalOpen(true)}
+                disabled={periods.length === 0}
                 className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-30 transition-all flex items-center gap-1.5"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
@@ -1054,15 +1189,15 @@ const App: React.FC = () => {
               const isToday = p.repeatDays.includes(currentDay);
               const isActive = isToday && p.isActive && nowStr >= p.startTime && nowStr < p.endTime;
               return (
-                <PeriodCard 
-                  key={p.id} 
-                  period={p} 
-                  currentTime={currentTime} 
-                  isActive={isActive} 
+                <PeriodCard
+                  key={p.id}
+                  period={p}
+                  currentTime={currentTime}
+                  isActive={isActive}
                   onToggle={(id) => {
                     setActiveProfileName(null);
-                    setPeriods(prev => prev.map(item => item.id === id ? {...item, isActive: !item.isActive} : item));
-                  }} 
+                    setPeriods(prev => prev.map(item => item.id === id ? { ...item, isActive: !item.isActive } : item));
+                  }}
                   onDelete={(id) => requestConfirm({
                     title: 'Delete Bell',
                     message: `Are you sure you want to remove "${p.name}"?`,
@@ -1073,8 +1208,8 @@ const App: React.FC = () => {
                       setPeriods(prev => prev.filter(item => item.id !== id));
                       closeConfirm();
                     }
-                  })} 
-                  onEdit={() => openModal(p)} 
+                  })}
+                  onEdit={() => openModal(p)}
                 />
               );
             })}
@@ -1094,10 +1229,10 @@ const App: React.FC = () => {
                 <h2 className="text-lg font-black text-slate-900">No Alarms</h2>
               </div>
             ) : fixedAlarms.map(a => (
-              <AlarmCard 
-                key={a.id} 
-                alarm={a} 
-                onToggle={(id) => setFixedAlarms(prev => prev.map(item => item.id === id ? {...item, isActive: !item.isActive} : item))} 
+              <AlarmCard
+                key={a.id}
+                alarm={a}
+                onToggle={(id) => setFixedAlarms(prev => prev.map(item => item.id === id ? { ...item, isActive: !item.isActive } : item))}
                 onDelete={(id) => requestConfirm({
                   title: 'Delete Alarm',
                   message: `Remove alarm for ${a.time}?`,
@@ -1107,18 +1242,18 @@ const App: React.FC = () => {
                     setFixedAlarms(prev => prev.filter(item => item.id !== id));
                     closeConfirm();
                   }
-                })} 
-                onEdit={(alarm) => openAlarmModal(alarm)} 
+                })}
+                onEdit={(alarm) => openAlarmModal(alarm)}
               />
             ))}
           </div>
         )}
 
-        {/* {view === 'ai' && (
+        {view === 'ai' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-indigo-600 p-6 rounded-[30px] mb-6 text-white shadow-xl">
-               <h2 className="text-xl font-black mb-1">AI Genius</h2>
-               <p className="text-indigo-100 text-xs opacity-80 uppercase tracking-widest">Plan your school day in seconds.</p>
+              <h2 className="text-xl font-black mb-1">AI Genius</h2>
+              <p className="text-indigo-100 text-xs opacity-80 uppercase tracking-widest">Plan your school day in seconds.</p>
             </div>
             <textarea value={aiInput} onChange={(e) => setAiInput(e.target.value)} placeholder="Example: Create a schedule for 6 school periods starting at 8:00 AM with 45 min duration each..." className="w-full h-40 p-5 bg-white border border-slate-100 rounded-[24px] outline-none font-bold shadow-sm placeholder-slate-200 resize-none text-slate-900 focus:ring-2 ring-indigo-500" />
             <button onClick={async () => {
@@ -1131,7 +1266,7 @@ const App: React.FC = () => {
               } catch (err) { alert("AI failed."); } finally { setIsAiLoading(false); }
             }} disabled={isAiLoading || !aiInput.trim()} className="w-full mt-4 p-5 bg-slate-900 text-white rounded-[24px] font-black">{isAiLoading ? "Processing..." : "Generate AI Plan"}</button>
           </div>
-        )} */}
+        )}
 
         {view === 'settings' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
@@ -1142,42 +1277,42 @@ const App: React.FC = () => {
             <section className="mb-8">
               <h3 className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-3 ml-1">Manual Bell Config</h3>
               <div className="bg-white rounded-[30px] border border-slate-100 p-6 shadow-sm space-y-4">
-                 <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Manual Ring Duration</label>
-                      <div className="flex items-center gap-1">
-                        <input 
-                          type="number" 
-                          value={manualBellConfig.ringDuration} 
-                          onChange={(e) => setManualBellConfig(prev => ({ ...prev, ringDuration: Number(e.target.value) }))}
-                          className="w-12 bg-white border border-amber-100 rounded-lg px-1 py-0.5 text-xs font-black text-amber-600 text-center focus:ring-1 ring-amber-500 outline-none"
-                        />
-                        <span className="text-[10px] font-black text-amber-400">Sec</span>
-                      </div>
+                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Manual Ring Duration</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        value={manualBellConfig.ringDuration}
+                        onChange={(e) => setManualBellConfig(prev => ({ ...prev, ringDuration: Number(e.target.value) }))}
+                        className="w-12 bg-white border border-amber-100 rounded-lg px-1 py-0.5 text-xs font-black text-amber-600 text-center focus:ring-1 ring-amber-500 outline-none"
+                      />
+                      <span className="text-[10px] font-black text-amber-400">Sec</span>
                     </div>
-                    <input 
-                      type="range" min="1" max="60" step="1"
-                      value={manualBellConfig.ringDuration > 60 ? 60 : manualBellConfig.ringDuration} onChange={(e) => setManualBellConfig(prev => ({ ...prev, ringDuration: Number(e.target.value) }))}
-                      className="w-full accent-amber-500"
-                    />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Bell Tone</label>
-                    <SoundOptionList sounds={allSounds} selectedUrl={manualBellConfig.soundUrl} onSelect={(url) => setManualBellConfig(prev => ({...prev, soundUrl: url}))} onPreview={testAlarm} previewingUrl={previewingUrl} maxHeight="120px" />
-                  </div>
-                  <button 
-                    onClick={handleManualBellToggle} 
-                    className={`w-full py-3 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all ${isRinging ? 'bg-red-500 shadow-red-100' : 'bg-amber-500 shadow-amber-100'}`}
-                  >
-                    <svg className={`w-4 h-4 ${isRinging ? 'animate-bounce' : 'animate-pulse-soft'}`} fill="currentColor" viewBox="0 0 20 20">
-                      {isRinging ? (
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
-                      ) : (
-                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                      )}
-                    </svg>
-                    {isRinging ? 'Stop Ringing' : 'Test This Bell'}
-                  </button>
+                  <input
+                    type="range" min="1" max="60" step="1"
+                    value={manualBellConfig.ringDuration > 60 ? 60 : manualBellConfig.ringDuration} onChange={(e) => setManualBellConfig(prev => ({ ...prev, ringDuration: Number(e.target.value) }))}
+                    className="w-full accent-amber-500"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Bell Tone</label>
+                  <SoundOptionList sounds={allSounds} selectedUrl={manualBellConfig.soundUrl} onSelect={(url) => setManualBellConfig(prev => ({ ...prev, soundUrl: url }))} onPreview={testAlarm} previewingUrl={previewingUrl} maxHeight="120px" />
+                </div>
+                <button
+                  onClick={handleManualBellToggle}
+                  className={`w-full py-3 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all ${isRinging ? 'bg-red-500 shadow-red-100' : 'bg-amber-500 shadow-amber-100'}`}
+                >
+                  <svg className={`w-4 h-4 ${isRinging ? 'animate-bounce' : 'animate-pulse-soft'}`} fill="currentColor" viewBox="0 0 20 20">
+                    {isRinging ? (
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clipRule="evenodd" />
+                    ) : (
+                      <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                    )}
+                  </svg>
+                  {isRinging ? 'Stop Ringing' : 'Test This Bell'}
+                </button>
               </div>
             </section>
 
@@ -1190,8 +1325,8 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   savedProfiles.map(profile => (
-                    <div 
-                      key={profile.id} 
+                    <div
+                      key={profile.id}
                       onClick={() => setSelectedProfilePreview(profile)}
                       className={`p-4 rounded-[28px] border transition-all cursor-pointer flex items-center justify-between group active:scale-[0.98] ${activeProfileName === profile.name ? 'bg-indigo-50/20 border-indigo-200 shadow-md ring-1 ring-indigo-100' : 'bg-white border-slate-100 shadow-sm'}`}
                     >
@@ -1205,18 +1340,18 @@ const App: React.FC = () => {
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                         <button 
-                            onClick={(e) => { e.stopPropagation(); applyProfile(profile); }} 
-                            className={`px-4 py-2 text-[9px] font-black rounded-xl uppercase tracking-widest shadow-lg active:scale-90 transition-all ${activeProfileName === profile.name ? 'bg-slate-900 text-white' : 'bg-emerald-500 text-white shadow-emerald-100'}`}
-                          >
-                            {activeProfileName === profile.name ? 'Active' : 'Apply'}
-                          </button>
-                         <button 
-                            onClick={(e) => { e.stopPropagation(); deleteProfile(profile.id, profile.name); }} 
-                            className="p-2 text-slate-200 hover:text-red-500 transition-colors"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); applyProfile(profile); }}
+                          className={`px-4 py-2 text-[9px] font-black rounded-xl uppercase tracking-widest shadow-lg active:scale-90 transition-all ${activeProfileName === profile.name ? 'bg-slate-900 text-white' : 'bg-emerald-500 text-white shadow-emerald-100'}`}
+                        >
+                          {activeProfileName === profile.name ? 'Active' : 'Apply'}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteProfile(profile.id, profile.name); }}
+                          className="p-2 text-slate-200 hover:text-red-500 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
                       </div>
                     </div>
                   ))
@@ -1250,8 +1385,8 @@ const App: React.FC = () => {
 
       {view === 'schedule' && (
         <div className="fixed bottom-24 right-6 flex flex-col items-center space-y-4 z-30">
-          <button 
-            onClick={handleManualBellToggle} 
+          <button
+            onClick={handleManualBellToggle}
             className={`w-12 h-12 text-white rounded-[16px] shadow-lg flex flex-col items-center justify-center active:scale-90 transition-all group overflow-hidden relative ${isRinging ? 'bg-red-500 ring-4 ring-red-100' : 'bg-amber-500'}`}
             title={isRinging ? "Stop Bell" : "Manual Bell"}
           >
@@ -1265,9 +1400,9 @@ const App: React.FC = () => {
             </svg>
             <span className="text-[6px] font-black uppercase tracking-tighter mt-0.5">{isRinging ? 'Stop' : 'Ring Now'}</span>
           </button>
-          
-          <button 
-            onClick={() => openModal()} 
+
+          <button
+            onClick={() => openModal()}
             className="w-14 h-14 bg-indigo-600 text-white rounded-[18px] shadow-xl flex items-center justify-center active:scale-90 transition-all"
             title="Add Bell"
           >
@@ -1286,7 +1421,7 @@ const App: React.FC = () => {
   );
 };
 
-const NavBtn: React.FC<{active: boolean, onClick: () => void, icon: React.ReactNode, label: string}> = ({active, onClick, icon, label}) => (
+const NavBtn: React.FC<{ active: boolean, onClick: () => void, icon: React.ReactNode, label: string }> = ({ active, onClick, icon, label }) => (
   <button onClick={onClick} className={`flex flex-col items-center space-y-0.5 transition-all duration-300 ${active ? 'text-indigo-600 scale-105' : 'text-slate-300'}`}>
     <div>{icon}</div>
     <span className={`text-[7px] font-black uppercase tracking-widest ${active ? 'opacity-100' : 'opacity-40'}`}>{label}</span>
