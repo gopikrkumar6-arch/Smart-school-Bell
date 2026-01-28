@@ -34,7 +34,9 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <service android:name="de.appplant.cordova.plugin.background.ForegroundService" />
+        <service 
+            android:name="de.appplant.cordova.plugin.background.ForegroundService"
+            android:stopWithTask="false" />
     </application>
 
     <!-- Permissions -->

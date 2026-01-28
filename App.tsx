@@ -234,23 +234,27 @@ const App: React.FC = () => {
       if (Capacitor.getPlatform() !== 'android') return;
 
       try {
-        const isEnabled = await BackgroundMode.isEnabled();
-        if (!isEnabled) {
-          await BackgroundMode.setDefaults({
+        const { enabled } = await BackgroundMode.isEnabled();
+        if (!enabled) {
+          await BackgroundMode.enable({
             title: "Smart School Bell",
-            text: "Monitoring bell schedule in background",
+            text: "Bell monitoring active (Always On)",
             icon: 'ic_launcher',
             color: "4f46e5",
-            visibility: 'secret'
+            visibility: 'secret',
+            silent: false,
+            resume: true
           });
-          await BackgroundMode.enable();
         }
 
-        // Check if we already have battery optimization exclusion
-        const isExcluding = await BackgroundMode.isIgnoringBatteryOptimizations();
-        if (!isExcluding) {
-          // This will prompt the user
-          await BackgroundMode.requestIgnoreBatteryOptimizations();
+        // Disable battery optimizations for the webview specifically
+        await BackgroundMode.disableWebViewOptimizations();
+
+        // Check if battery optimizations are active (enabled)
+        const batteryStatus = await BackgroundMode.checkBatteryOptimizations();
+        if (batteryStatus.enabled) {
+          // If they are enabled, prompt the user to disable them for this app
+          await BackgroundMode.requestDisableBatteryOptimizations();
         }
       } catch (e) {
         console.error("Background mode setup error:", e);
