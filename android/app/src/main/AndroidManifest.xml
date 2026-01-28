@@ -38,7 +38,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
-    
     <!-- Wake Lock - Keep device awake when alarm rings -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     

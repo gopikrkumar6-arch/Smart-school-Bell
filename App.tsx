@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { Period, FixedAlarm, ViewType, ScheduleProfile, ManualBellConfig } from './types';
 import { COLORS, INITIAL_PERIODS, PREBUILT_SOUNDS } from './constants';
 import PeriodCard from './components/PeriodCard';
@@ -150,6 +150,41 @@ const App: React.FC = () => {
   });
 
   const [previewingUrl, setPreviewingUrl] = useState<string | null>(null);
+
+  // Background Mode Setup
+  useEffect(() => {
+    if (Capacitor.getPlatform() === 'android') {
+      const initBackgroundMode = async () => {
+        try {
+          // @ts-ignore
+          const backgroundMode = (window as any).cordova?.plugins?.backgroundMode;
+          if (backgroundMode) {
+            backgroundMode.enable();
+            backgroundMode.overrideBackButton();
+            backgroundMode.setDefaults({
+              title: 'Smart School Bell',
+              text: 'Running in background to trigger bells',
+              icon: 'ic_launcher',
+              color: '4f46e5',
+              resume: true,
+              hidden: false,
+              bigText: true
+            });
+
+            backgroundMode.on('activate', () => {
+              backgroundMode.disableWebViewOptimizations();
+              backgroundMode.disableBatteryOptimizations();
+            });
+          }
+        } catch (err) {
+          console.error('Failed to initialize background mode:', err);
+        }
+      };
+
+      initBackgroundMode();
+    }
+  }, []);
+
   const [isUrlModalOpen, setIsUrlModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedProfilePreview, setSelectedProfilePreview] = useState<ScheduleProfile | null>(null);
