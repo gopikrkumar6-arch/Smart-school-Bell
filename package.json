@@ -12,6 +12,7 @@
     "cap:run:android": "npm run build && npx cap sync && npx cap run android"
   },
   "dependencies": {
+    "@anuradev/capacitor-background-mode": "^7.2.1",
     "@capacitor/android": "^8.0.1",
     "@capacitor/cli": "^8.0.1",
     "@capacitor/core": "^8.0.1",
