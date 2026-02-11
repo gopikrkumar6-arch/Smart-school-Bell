@@ -202,6 +202,7 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ringTimeoutRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastCheckedMinute = useRef<string>("");
 
   const allSounds = useMemo(() => [...PREBUILT_SOUNDS, ...customSounds], [customSounds]);
 
@@ -283,46 +284,46 @@ const App: React.FC = () => {
 
   const checkAlarms = useCallback((now: Date) => {
     const timeStr = now.toTimeString().slice(0, 5);
-    const seconds = now.getSeconds();
     const day = now.getDay();
 
-    if (seconds === 0) {
-      // 1. Check for periods starting
-      const activePeriodsStarted = periods.filter(p =>
-        p.isActive &&
-        p.repeatDays.includes(day) &&
-        p.startTime === timeStr
-      );
+    if (lastCheckedMinute.current === timeStr) return;
+    lastCheckedMinute.current = timeStr;
 
-      // 2. Check for periods ending
-      const activePeriodsEnded = periods.filter(p =>
-        p.isActive &&
-        p.repeatDays.includes(day) &&
-        p.endTime === timeStr
-      );
+    // 1. Check for periods starting
+    const activePeriodsStarted = periods.filter(p =>
+      p.isActive &&
+      p.repeatDays.includes(day) &&
+      p.startTime === timeStr
+    );
 
-      // 3. Check for fixed alarms
-      const triggeredAlarms = fixedAlarms.filter(a =>
-        a.isActive &&
-        a.repeatDays.includes(day) &&
-        a.time === timeStr
-      );
+    // 2. Check for periods ending
+    const activePeriodsEnded = periods.filter(p =>
+      p.isActive &&
+      p.repeatDays.includes(day) &&
+      p.endTime === timeStr
+    );
 
-      // Priority: Start > End > Fixed Alarm
-      // This ensures that if multiple events hit at the same minute, the most relevant ringing label is shown.
-      if (activePeriodsStarted.length > 0) {
-        const p = activePeriodsStarted[0];
-        const soundToPlay = p.soundUrl || selectedSound;
-        playAlarm(soundToPlay, p.ringDuration, `${p.name} Started`);
-      } else if (activePeriodsEnded.length > 0) {
-        const p = activePeriodsEnded[0];
-        const soundToPlay = p.soundUrl || selectedSound;
-        playAlarm(soundToPlay, p.ringDuration, `${p.name} Ended`);
-      } else if (triggeredAlarms.length > 0) {
-        const a = triggeredAlarms[0];
-        const soundToPlay = a.soundUrl || selectedSound;
-        playAlarm(soundToPlay, a.ringDuration, a.label || "Alarm Triggered");
-      }
+    // 3. Check for fixed alarms
+    const triggeredAlarms = fixedAlarms.filter(a =>
+      a.isActive &&
+      a.repeatDays.includes(day) &&
+      a.time === timeStr
+    );
+
+    // Handle multiple events if they occur at the same minute
+    // We prioritize Start > End > Fixed Alarm for the ringing label
+    if (activePeriodsStarted.length > 0) {
+      const p = activePeriodsStarted[0];
+      const soundToPlay = p.soundUrl || selectedSound;
+      playAlarm(soundToPlay, p.ringDuration, `${p.name} Started`);
+    } else if (activePeriodsEnded.length > 0) {
+      const p = activePeriodsEnded[0];
+      const soundToPlay = p.soundUrl || selectedSound;
+      playAlarm(soundToPlay, p.ringDuration, `${p.name} Ended`);
+    } else if (triggeredAlarms.length > 0) {
+      const a = triggeredAlarms[0];
+      const soundToPlay = a.soundUrl || selectedSound;
+      playAlarm(soundToPlay, a.ringDuration, a.label || "Alarm Triggered");
     }
   }, [periods, fixedAlarms, selectedSound]);
 
@@ -338,6 +339,16 @@ const App: React.FC = () => {
     }
     setIsRinging(false);
     setRingingLabel('');
+
+    // Revert background notification if on Android
+    if (Capacitor.getPlatform() === 'android') {
+      BackgroundMode.setSettings({
+        title: "Smart School Bell",
+        text: "Bell monitoring active (Always On)",
+        silent: false
+      }).catch(e => console.error("Error reverting bg settings:", e));
+    }
+
     if (navigator.vibrate) navigator.vibrate(0);
   }, []);
 
@@ -352,6 +363,16 @@ const App: React.FC = () => {
       setPreviewingUrl(null);
       setIsRinging(true);
       setRingingLabel(label);
+
+      // Update background notification if on Android
+      if (Capacitor.getPlatform() === 'android') {
+        BackgroundMode.setSettings({
+          title: "Periodize Ringing",
+          text: `🔔 ${label}`,
+          silent: false
+        }).catch(e => console.error("Error updating bg settings:", e));
+      }
+
       audioRef.current.src = soundUrl;
       audioRef.current.currentTime = 0;
       audioRef.current.loop = true; // Loop for the duration
