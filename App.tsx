@@ -5,7 +5,7 @@ import { COLORS, INITIAL_PERIODS, PREBUILT_SOUNDS } from './constants';
 import PeriodCard from './components/PeriodCard';
 import AlarmCard from './components/AlarmCard';
 import TimePicker from './components/TimePicker';
-// import { optimizeSchedule } from './services/geminiService';
+import { optimizeSchedule } from './services/geminiService';
 import { BackgroundMode } from '@anuradev/capacitor-background-mode';
 import { Capacitor } from '@capacitor/core';
 
@@ -287,19 +287,34 @@ const App: React.FC = () => {
     const day = now.getDay();
 
     if (seconds === 0) {
+      // 1. Check for periods starting
+      const activePeriodsStarted = periods.filter(p =>
+        p.isActive &&
+        p.repeatDays.includes(day) &&
+        p.startTime === timeStr
+      );
+
+      // 2. Check for periods ending
       const activePeriodsEnded = periods.filter(p =>
         p.isActive &&
         p.repeatDays.includes(day) &&
         p.endTime === timeStr
       );
 
+      // 3. Check for fixed alarms
       const triggeredAlarms = fixedAlarms.filter(a =>
         a.isActive &&
         a.repeatDays.includes(day) &&
         a.time === timeStr
       );
 
-      if (activePeriodsEnded.length > 0) {
+      // Priority: Start > End > Fixed Alarm
+      // This ensures that if multiple events hit at the same minute, the most relevant ringing label is shown.
+      if (activePeriodsStarted.length > 0) {
+        const p = activePeriodsStarted[0];
+        const soundToPlay = p.soundUrl || selectedSound;
+        playAlarm(soundToPlay, p.ringDuration, `${p.name} Started`);
+      } else if (activePeriodsEnded.length > 0) {
         const p = activePeriodsEnded[0];
         const soundToPlay = p.soundUrl || selectedSound;
         playAlarm(soundToPlay, p.ringDuration, `${p.name} Ended`);
@@ -678,9 +693,9 @@ const App: React.FC = () => {
 
             <div className="space-y-3">
               <h2 className="text-4xl font-black text-white tracking-tight">{ringingLabel}</h2>
-              <div className="flex items-center justify-center space-x-2 text-indigo-400 font-black text-xl tabular-nums">
+              <div className="flex items-center justify-center space-x-2 text-indigo-500 font-black text-xl tabular-nums">
                 <span>{timeParts.hh}:{timeParts.mm}</span>
-                <span className="text-xs opacity-60 font-bold uppercase tracking-widest bg-indigo-500/20 px-2 py-0.5 rounded-full">{currentTime.getHours() >= 12 ? 'PM' : 'AM'}</span>
+                <span className="text-xs opacity-80 font-bold uppercase tracking-widest bg-indigo-500/20 px-2 py-0.5 rounded-full">{currentTime.getHours() >= 12 ? 'PM' : 'AM'}</span>
               </div>
             </div>
 
@@ -694,7 +709,7 @@ const App: React.FC = () => {
                 </div>
                 Stop Bell
               </button>
-              <p className="mt-4 text-[10px] font-bold text-slate-500 uppercase tracking-[0.3em]">Tap to dismiss</p>
+              <p className="mt-4 text-[10px] font-bold text-slate-600 uppercase tracking-[0.3em]">Tap to dismiss</p>
             </div>
           </div>
         </div>
@@ -713,7 +728,7 @@ const App: React.FC = () => {
               )}
             </div>
             <h3 className="text-xl font-black text-slate-900 mb-2">{confirmConfig.title}</h3>
-            <p className="text-sm font-bold text-slate-400 mb-8 leading-relaxed px-2">{confirmConfig.message}</p>
+            <p className="text-sm font-bold text-slate-600 mb-8 leading-relaxed px-2">{confirmConfig.message}</p>
             <div className="flex flex-col gap-3">
               <button
                 onClick={confirmConfig.onConfirm}
@@ -723,7 +738,7 @@ const App: React.FC = () => {
               </button>
               <button
                 onClick={closeConfirm}
-                className="w-full py-4 bg-slate-50 text-slate-400 font-black rounded-2xl text-xs uppercase tracking-widest"
+                className="w-full py-4 bg-slate-100 text-slate-600 font-black rounded-2xl text-xs uppercase tracking-widest"
               >
                 Cancel
               </button>
@@ -1000,7 +1015,7 @@ const App: React.FC = () => {
                   />
                 </div>
                 <div className="flex space-x-3">
-                  <button onClick={() => setAddStep(4)} className="flex-1 p-5 bg-white border border-slate-100 text-slate-400 font-black rounded-[24px]">Back</button>
+                  <button onClick={() => setAddStep(4)} className="flex-1 p-5 bg-white border border-slate-100 text-slate-600 font-black rounded-[24px]">Back</button>
                   <button onClick={() => setAddStep(6)} className="flex-[2] p-5 bg-slate-900 text-white font-black rounded-[24px]">Repeat</button>
                 </div>
               </div>
@@ -1009,16 +1024,16 @@ const App: React.FC = () => {
               <div className="step-enter space-y-6">
                 <div className="bg-slate-50 p-6 rounded-[32px] border border-slate-100 flex justify-between gap-1.5">
                   {DAYS_SHORT.map((day, idx) => (
-                    <button key={idx} onClick={() => setRepeatDays(prev => prev.includes(idx) ? prev.filter(d => d !== idx) : [...prev, idx])} className={`w-9 h-9 rounded-full flex items-center justify-center text-[9px] font-black border ${repeatDays.includes(idx) ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-slate-300 border-slate-100'}`}>{day}</button>
+                    <button key={idx} onClick={() => setRepeatDays(prev => prev.includes(idx) ? prev.filter(d => d !== idx) : [...prev, idx])} className={`w-9 h-9 rounded-full flex items-center justify-center text-[9px] font-black border ${repeatDays.includes(idx) ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg' : 'bg-white text-slate-500 border-slate-100'}`}>{day}</button>
                   ))}
                 </div>
                 <div className="flex space-x-3">
-                  <button onClick={() => setAddStep(5)} className="flex-1 p-5 bg-white border border-slate-100 text-slate-400 font-black rounded-[24px]">Back</button>
+                  <button onClick={() => setAddStep(5)} className="flex-1 p-5 bg-white border border-slate-100 text-slate-600 font-black rounded-[24px]">Back</button>
                   <button onClick={handleSavePeriod} className="flex-[2] p-5 bg-indigo-600 text-white font-black rounded-[24px] shadow-2xl">Save Bell</button>
                 </div>
               </div>
             )}
-            <button onClick={closeModal} className="mt-6 w-full text-[10px] font-black text-slate-300 uppercase tracking-[0.3em] py-2">Cancel</button>
+            <button onClick={closeModal} className="mt-6 w-full text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] py-2">Cancel</button>
           </div>
         </div>
       )}
@@ -1027,7 +1042,7 @@ const App: React.FC = () => {
         <div className="flex justify-between items-center px-1">
           <div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none">Periodize</h1>
-            <p className="text-slate-400 font-bold text-[8px] uppercase tracking-[0.2em] mt-1">{currentTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+            <p className="text-slate-600 font-bold text-[8px] uppercase tracking-[0.2em] mt-1">{currentTime.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</p>
           </div>
           <div className="text-right flex items-center space-x-0.5 justify-end">
             <div className="text-2xl font-black text-indigo-600 tabular-nums flex items-baseline">
@@ -1046,10 +1061,10 @@ const App: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <div className="truncate">
-                <p className="text-[8px] font-black text-indigo-400 uppercase leading-none mb-1 tracking-wider">{nextAlarmInfo.label}</p>
+                <p className="text-[8px] font-black text-indigo-500 uppercase leading-none mb-1 tracking-wider">{nextAlarmInfo.label}</p>
                 <div className="flex items-center gap-1.5 truncate">
                   <p className="text-xs font-black text-indigo-900 leading-none truncate">{nextAlarmInfo.name}</p>
-                  <span className="text-[10px] font-bold text-indigo-300 opacity-60">@ {nextAlarmInfo.time}</span>
+                  <span className="text-[10px] font-bold text-indigo-700 opacity-90">@ {nextAlarmInfo.time}</span>
                 </div>
               </div>
             </div>
@@ -1065,7 +1080,7 @@ const App: React.FC = () => {
           <div className="space-y-2.5 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {activeProfileName && (
               <div className="mb-4 px-1 flex flex-col items-start bg-indigo-50/20 p-3 rounded-2xl border border-indigo-100/30">
-                <p className="text-[8px] font-black text-indigo-300 uppercase tracking-widest mb-0.5">Applied Profile</p>
+                <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">Applied Profile</p>
                 <h2 className="text-lg font-black uppercase tracking-tight active-profile-glow leading-none">
                   {activeProfileName}
                 </h2>
@@ -1151,13 +1166,13 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* {view === 'ai' && (
+        {view === 'ai' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="bg-indigo-600 p-6 rounded-[30px] mb-6 text-white shadow-xl">
-               <h2 className="text-xl font-black mb-1">AI Genius</h2>
-               <p className="text-indigo-100 text-xs opacity-80 uppercase tracking-widest">Plan your school day in seconds.</p>
+              <h2 className="text-xl font-black mb-1">AI Genius</h2>
+              <p className="text-indigo-100 text-xs opacity-80 uppercase tracking-widest">Plan your school day in seconds.</p>
             </div>
-            <textarea value={aiInput} onChange={(e) => setAiInput(e.target.value)} placeholder="Example: Create a schedule for 6 school periods starting at 8:00 AM with 45 min duration each..." className="w-full h-40 p-5 bg-white border border-slate-100 rounded-[24px] outline-none font-bold shadow-sm placeholder-slate-200 resize-none text-slate-900 focus:ring-2 ring-indigo-500" />
+            <textarea value={aiInput} onChange={(e) => setAiInput(e.target.value)} placeholder="Example: Create a schedule for 6 school periods starting at 8:00 AM... " className="w-full h-40 p-5 bg-white border border-slate-100 rounded-[24px] outline-none font-bold shadow-sm placeholder-slate-400 resize-none text-slate-900 focus:ring-2 ring-indigo-500" />
             <button onClick={async () => {
               setIsAiLoading(true);
               try {
@@ -1168,7 +1183,7 @@ const App: React.FC = () => {
               } catch (err) { alert("AI failed."); } finally { setIsAiLoading(false); }
             }} disabled={isAiLoading || !aiInput.trim()} className="w-full mt-4 p-5 bg-slate-900 text-white rounded-[24px] font-black">{isAiLoading ? "Processing..." : "Generate AI Plan"}</button>
           </div>
-        )} */}
+        )}
 
         {view === 'settings' && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-10">
@@ -1177,11 +1192,11 @@ const App: React.FC = () => {
             </div>
 
             <section className="mb-8">
-              <h3 className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-3 ml-1">Manual Bell Config</h3>
+              <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Manual Bell Config</h3>
               <div className="bg-white rounded-[30px] border border-slate-100 p-6 shadow-sm space-y-4">
                 <div className="bg-slate-50 p-4 rounded-3xl border border-slate-100">
                   <div className="flex justify-between items-center mb-2">
-                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Manual Ring Duration</label>
+                    <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Manual Ring Duration</label>
                     <div className="flex items-center gap-1">
                       <input
                         type="number"
@@ -1199,7 +1214,7 @@ const App: React.FC = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Bell Tone</label>
+                  <label className="text-[9px] font-black text-slate-600 uppercase tracking-widest ml-1">Bell Tone</label>
                   <SoundOptionList sounds={allSounds} selectedUrl={manualBellConfig.soundUrl} onSelect={(url) => setManualBellConfig(prev => ({ ...prev, soundUrl: url }))} onPreview={testAlarm} previewingUrl={previewingUrl} maxHeight="120px" />
                 </div>
                 <button
@@ -1219,7 +1234,7 @@ const App: React.FC = () => {
             </section>
 
             <section className="mb-8">
-              <h3 className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-3 ml-1">Saved Lists (Profiles)</h3>
+              <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Saved Lists (Profiles)</h3>
               <div className="space-y-3">
                 {savedProfiles.length === 0 ? (
                   <div className="p-8 border-2 border-dashed border-slate-100 rounded-[30px] text-center">
@@ -1238,7 +1253,7 @@ const App: React.FC = () => {
                         </div>
                         <div className="truncate flex-1">
                           <h4 className={`font-black text-sm truncate ${activeProfileName === profile.name ? 'text-indigo-900' : 'text-slate-800'}`}>{profile.name}</h4>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{profile.periods.length} Bells Configured</p>
+                          <p className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">{profile.periods.length} Bells Configured</p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -1250,7 +1265,7 @@ const App: React.FC = () => {
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); deleteProfile(profile.id, profile.name); }}
-                          className="p-2 text-slate-200 hover:text-red-500 transition-colors"
+                          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                         </button>
@@ -1262,7 +1277,7 @@ const App: React.FC = () => {
             </section>
 
             <section>
-              <h3 className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] mb-3 ml-1">Global Sounds</h3>
+              <h3 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 ml-1">Global Sounds</h3>
               <div className="bg-white rounded-[30px] border border-slate-100 shadow-sm overflow-hidden divide-y divide-slate-50">
                 {allSounds.map(s => (
                   <div key={s.id} onClick={() => setSelectedSound(s.url)} className={`p-4 flex items-center justify-between cursor-pointer ${selectedSound === s.url ? 'bg-indigo-50/10' : ''}`}>
@@ -1324,9 +1339,9 @@ const App: React.FC = () => {
 };
 
 const NavBtn: React.FC<{ active: boolean, onClick: () => void, icon: React.ReactNode, label: string }> = ({ active, onClick, icon, label }) => (
-  <button onClick={onClick} className={`flex flex-col items-center space-y-0.5 transition-all duration-300 ${active ? 'text-indigo-600 scale-105' : 'text-slate-300'}`}>
+  <button onClick={onClick} className={`flex flex-col items-center space-y-0.5 transition-all duration-300 ${active ? 'text-indigo-600 scale-105' : 'text-slate-500'}`}>
     <div>{icon}</div>
-    <span className={`text-[7px] font-black uppercase tracking-widest ${active ? 'opacity-100' : 'opacity-40'}`}>{label}</span>
+    <span className={`text-[7px] font-black uppercase tracking-widest ${active ? 'opacity-100' : 'opacity-60'}`}>{label}</span>
   </button>
 );
 
